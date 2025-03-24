@@ -1,24 +1,15 @@
-import { Request, Response } from "express";
-import { prisma } from "../config/prisma";
-import { ApiError } from "../utils/ApiError";
+import { Request, Response, NextFunction } from "express";
+import { getProfileService } from "../services/user.service";
 
 export const getProfile = async (
   req: Request,
-  res: Response
-): Promise<void> => {
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.user!.id },
-      select: { id: true, email: true, name: true },
-    });
-
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
+    const user = await getProfileService(req.user!.id);
     res.json(user);
   } catch (err) {
-    console.error("❌ Get profile error:", err);
-    res.status(500).json({ message: "Internal server error" });
+    next(err);
   }
 };

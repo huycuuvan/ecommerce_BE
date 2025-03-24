@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { verifyToken } from "../middleware/auth.middleware";
 import { authorizeRole } from "../middleware/authorizeRole";
-import { getAdminData } from "../controller/admin.controller";
+import { getAdminData, getAllUsers } from "../controller/admin.controller";
 
 const adminRouter = Router();
 
@@ -11,5 +11,10 @@ adminRouter.get(
   authorizeRole(["ADMIN"]),
   getAdminData
 );
-
+adminRouter.get(
+  "/admin/users",
+  verifyToken,
+  authorizeRole(["ADMIN"]),
+  getAllUsers
+);
 export default adminRouter;

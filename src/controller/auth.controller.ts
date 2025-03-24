@@ -1,58 +1,58 @@
-import { Request, Response } from "express";
-import { prisma } from "../config/prisma";
-import { hashPassword } from "../utils/hash";
-import { compare } from "bcrypt";
-import { generateToken } from "../utils/jwt";
-import { ApiError } from "../utils/ApiError";
+import { Request, Response, NextFunction } from "express";
+import * as authService from "../services/auth.service";
 
-export const register = async (req: Request, res: Response): Promise<void> => {
-  const { email, password, name } = req.body;
-
+export const register = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const existingUser = await prisma.user.findUnique({ where: { email } });
-    if (existingUser) {
-      res.status(400).json({ message: "Email already exists" });
-      return;
-    }
-
-    const hashed = await hashPassword(password);
-    const user = await prisma.user.create({
-      data: {
-        email,
-        password: hashed,
-        name,
-        role: "USER",
-      },
-    });
-
-    res.status(201).json({ id: user.id, email: user.email, name: user.name });
+    const result = await authService.registerUser(req.body);
+    res.status(201).json(result);
   } catch (err) {
-    console.error("❌ Register error:", err);
-    res.status(500).json({ message: "Internal server error" });
+    next(err); // Gửi lỗi đến errorHandler middleware
   }
 };
 
-export const login = async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
-
+export const login = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      throw new ApiError(404, "User not found");
-    }
-
-    const isMatch = await compare(password, user.password);
-    if (!isMatch) {
-      throw new ApiError(401, "Wrong password");
-    }
-
-    const token = generateToken({
-      id: user.id,
-      email: user.email,
-      role: user.role,
-    });
+    const token = await authService.loginUser(req.body);
     res.json({ token });
   } catch (err) {
-    throw new ApiError(500, "Server error");
+    next(err);
+  }
+};
+
+export const refreshAccessToken = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { refreshToken } = req.body;
+    const result = await authService.refreshAccessTokenService(refreshToken);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+export const logoutController = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user?.id) {
+      throw new Error("User ID is required");
+    }
+    await authService.logoutService(req.user.id);
+    res.json({ message: "Logged out successfully" });
+  } catch (error) {
+    next(error);
   }
 };
